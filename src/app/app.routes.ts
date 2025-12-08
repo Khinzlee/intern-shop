@@ -11,6 +11,7 @@ export const routes: Routes = [
     path: 'product/:category/:name/:id',
     loadComponent: () => import('./components/product-details/product-details').then(m => m.ProductDetails)
   },
+   { title: 'Register', path: 'register', loadComponent: () => import('./components/auth/login/login').then(m => m.RegisterComponent) },
   {
     title: 'Cart',
     path: 'cart',

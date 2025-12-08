@@ -170,6 +170,19 @@ import { CapitalizeAndSpacePipe } from '../../pipes/capitalize-and-space-pipe';
       
       <div class="filter-section">
         <div class="filter-controls">
+          <!-- Search Input -->
+          <div class="search-box">
+            <i class="fa fa-search"></i>
+            <input 
+              type="text" 
+              [(ngModel)]="searchQuery"
+              (ngModelChange)="onSearchChange()"
+              placeholder="Search by name, category, brand..."
+              class="search-input"
+            />
+          </div>
+
+          <!-- Category Select -->
           <select [(ngModel)]="selectedCategory" (change)="filterProducts()" class="category-select">
             <option value="all">All Categories</option>
             <option *ngFor="let category of categories" [value]="category">
@@ -177,6 +190,15 @@ import { CapitalizeAndSpacePipe } from '../../pipes/capitalize-and-space-pipe';
             </option>
           </select>
 
+          <!-- Brand Select -->
+          <select [(ngModel)]="selectedBrand" (change)="filterProducts()" class="category-select">
+            <option value="all">All Brands</option>
+            <option *ngFor="let brand of brands" [value]="brand">
+              {{ brand }}
+            </option>
+          </select>
+
+          <!-- View Toggle -->
           <div class="view-toggle">
             <button 
               class="view-btn" 
@@ -196,22 +218,78 @@ import { CapitalizeAndSpacePipe } from '../../pipes/capitalize-and-space-pipe';
         </div>
 
         <div class="results-info">
-          <span>{{ filteredProducts.length }} products found</span>
+          <span>Showing {{ getStartIndex() + 1 }}-{{ getEndIndex() }} of {{ filteredProducts.length }} products</span>
         </div>
       </div>
 
-      <div class="product-list" [class.grid-view]="viewMode === 'grid'" [class.list-view]="viewMode === 'list'">
+      <!-- Loading State -->
+      <div *ngIf="loading" class="loading-state">
+        <i class="fa fa-spinner fa-spin"></i>
+        <p>Loading products...</p>
+      </div>
+
+      <!-- Products Grid/List -->
+      <div *ngIf="!loading && paginatedProducts.length > 0" 
+           class="product-list" 
+           [class.grid-view]="viewMode === 'grid'" 
+           [class.list-view]="viewMode === 'list'">
         <app-product-card
-          *ngFor="let product of filteredProducts"
+          *ngFor="let product of paginatedProducts"
           [product]="product"
           [viewMode]="viewMode">
         </app-product-card>
       </div>
 
-      <div *ngIf="filteredProducts.length === 0" class="no-products">
+      <!-- No Products -->
+      <div *ngIf="!loading && filteredProducts.length === 0" class="no-products">
         <i class="fa fa-box-open"></i>
         <h3>No products found</h3>
-        <p>Try selecting a different category</p>
+        <p>Try adjusting your filters or search terms</p>
+        <button (click)="resetFilters()" class="reset-btn">Reset Filters</button>
+      </div>
+
+      <!-- Pagination -->
+      <div *ngIf="!loading && filteredProducts.length > itemsPerPage" class="pagination">
+        <button 
+          (click)="goToPage(currentPage - 1)"
+          [disabled]="currentPage === 1"
+          class="page-btn prev-btn">
+          Previous Page {{ currentPage > 1 ? (currentPage - 1) : '' }}
+        </button>
+
+        <!-- First Page -->
+        <button 
+          *ngIf="currentPage > 3"
+          (click)="goToPage(1)"
+          class="page-number">
+          1
+        </button>
+        <span *ngIf="currentPage > 4" class="ellipsis">...</span>
+
+        <!-- Page Numbers -->
+        <button 
+          *ngFor="let page of getPageNumbers()"
+          (click)="goToPage(page)"
+          [class.active]="page === currentPage"
+          class="page-number">
+          {{ page }}
+        </button>
+
+        <!-- Last Page -->
+        <span *ngIf="currentPage < totalPages - 3" class="ellipsis">...</span>
+        <button 
+          *ngIf="currentPage < totalPages - 2"
+          (click)="goToPage(totalPages)"
+          class="page-number">
+          {{ totalPages }}
+        </button>
+
+        <button 
+          (click)="goToPage(currentPage + 1)"
+          [disabled]="currentPage === totalPages"
+          class="page-btn next-btn">
+          Next Page {{ currentPage < totalPages ? (currentPage + 1) : '' }}
+        </button>
       </div>
     </div>
   `,
@@ -242,46 +320,82 @@ import { CapitalizeAndSpacePipe } from '../../pipes/capitalize-and-space-pipe';
       font-size: 16px;
     }
 
+    /* Loading State */
+    .loading-state {
+      text-align: center;
+      padding: 60px 20px;
+      color: #666;
+    }
+
+    .loading-state i {
+      font-size: 48px;
+      color: #007bff;
+      margin-bottom: 15px;
+    }
+
     /* Filter Section */
     .filter-section {
       display: flex;
-      justify-content: space-between;
-      align-items: center;
-      margin-bottom: 25px;
-      padding: 15px;
-      background: #fff;
-      border-radius: 8px;
-      box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08);
-      flex-wrap: wrap;
+      flex-direction: column;
       gap: 15px;
+      margin-bottom: 25px;
+      padding: 20px;
+      background: #fff;
+      border-radius: 12px;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
     }
 
     .filter-controls {
       display: flex;
       align-items: center;
       gap: 15px;
+      flex-wrap: wrap;
+    }
+
+    /* Search Box */
+    .search-box {
+      position: relative;
       flex: 1;
+      min-width: 250px;
+    }
+
+    .search-box i {
+      position: absolute;
+      left: 15px;
+      top: 50%;
+      transform: translateY(-50%);
+      color: #666;
+    }
+
+    .search-input {
+      width: 100%;
+      padding: 12px 15px 12px 45px;
+      border: 2px solid #e0e0e0;
+      border-radius: 8px;
+      font-size: 15px;
+      transition: border-color 0.3s ease;
+    }
+
+    .search-input:focus {
+      outline: none;
+      border-color: #007bff;
     }
 
     .category-select {
-      padding: 10px 15px;
+      padding: 12px 15px;
       border: 2px solid #e0e0e0;
-      border-radius: 6px;
+      border-radius: 8px;
       font-size: 15px;
-      font-family: inherit;
       background: #fff;
       cursor: pointer;
       transition: border-color 0.3s ease;
-      min-width: 180px;
+      min-width: 150px;
     }
 
-    .category-select:hover {
-      border-color: #007bff;
-    }
-
+    .category-select:hover,
     .category-select:focus {
-      outline: none;
       border-color: #007bff;
+      outline: none;
     }
 
     /* View Toggle */
@@ -289,12 +403,12 @@ import { CapitalizeAndSpacePipe } from '../../pipes/capitalize-and-space-pipe';
       display: flex;
       gap: 5px;
       border: 2px solid #e0e0e0;
-      border-radius: 6px;
+      border-radius: 8px;
       overflow: hidden;
     }
 
     .view-btn {
-      padding: 8px 12px;
+      padding: 10px 16px;
       background: #fff;
       border: none;
       cursor: pointer;
@@ -314,8 +428,11 @@ import { CapitalizeAndSpacePipe } from '../../pipes/capitalize-and-space-pipe';
     }
 
     .results-info {
+      text-align: center;
       color: #666;
       font-size: 14px;
+      padding-top: 10px;
+      border-top: 1px solid #eee;
     }
 
     /* Product List - Grid View */
@@ -323,6 +440,7 @@ import { CapitalizeAndSpacePipe } from '../../pipes/capitalize-and-space-pipe';
       display: grid;
       grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
       gap: 25px;
+      margin-bottom: 30px;
     }
 
     /* Product List - List View */
@@ -330,9 +448,10 @@ import { CapitalizeAndSpacePipe } from '../../pipes/capitalize-and-space-pipe';
       display: flex;
       flex-direction: column;
       gap: 20px;
+      margin-bottom: 30px;
     }
 
-    /* No Products Message */
+    /* No Products */
     .no-products {
       text-align: center;
       padding: 60px 20px;
@@ -353,59 +472,100 @@ import { CapitalizeAndSpacePipe } from '../../pipes/capitalize-and-space-pipe';
 
     .no-products p {
       font-size: 16px;
+      margin-bottom: 20px;
     }
 
-    /* Tablet Styles (768px - 1024px) */
-    @media (max-width: 1024px) {
-      .shop-container {
-        padding: 15px;
-      }
-
-      .shop-header h2 {
-        font-size: 28px;
-      }
-
-      .product-list.grid-view {
-        grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
-        gap: 20px;
-      }
+    .reset-btn {
+      padding: 12px 30px;
+      background: #007bff;
+      color: white;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 16px;
+      transition: background 0.3s ease;
     }
 
-    /* Mobile Styles (< 768px) */
+    .reset-btn:hover {
+      background: #0056b3;
+    }
+
+    /* Pagination */
+    .pagination {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      margin: 40px 0;
+      flex-wrap: wrap;
+    }
+
+    .page-btn {
+      padding: 12px 20px;
+      border: 2px solid #e0e0e0;
+      background: #fff;
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 14px;
+      font-weight: 600;
+      transition: all 0.3s ease;
+    }
+
+    .page-btn:hover:not(:disabled) {
+      background: #f5f5f5;
+      border-color: #007bff;
+    }
+
+    .page-btn:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+
+    .page-number {
+      width: 45px;
+      height: 45px;
+      border: 2px solid #e0e0e0;
+      background: #fff;
+      border-radius: 50%;
+      cursor: pointer;
+      font-size: 14px;
+      font-weight: 600;
+      transition: all 0.3s ease;
+    }
+
+    .page-number:hover {
+      background: #f0f8ff;
+      border-color: #007bff;
+    }
+
+    .page-number.active {
+      background: #007bff;
+      color: #fff;
+      border-color: #007bff;
+    }
+
+    .ellipsis {
+      padding: 0 8px;
+      color: #999;
+    }
+
+    /* Responsive Styles */
     @media (max-width: 768px) {
-      .shop-container {
-        padding: 10px;
-      }
-
-      .shop-header h2 {
-        font-size: 24px;
-      }
-
-      .subtitle {
-        font-size: 14px;
-      }
-
-      .filter-section {
-        flex-direction: column;
-        align-items: stretch;
-        padding: 12px;
-      }
-
       .filter-controls {
-        width: 100%;
-        justify-content: space-between;
+        flex-direction: column;
       }
 
+      .search-box,
       .category-select {
-        flex: 1;
-        min-width: auto;
+        width: 100%;
       }
 
-      .results-info {
+      .view-toggle {
         width: 100%;
-        text-align: center;
-        padding-top: 10px;
-        border-top: 1px solid #eee;
+      }
+
+      .view-btn {
+        flex: 1;
       }
 
       .product-list.grid-view {
@@ -413,50 +573,19 @@ import { CapitalizeAndSpacePipe } from '../../pipes/capitalize-and-space-pipe';
         gap: 15px;
       }
 
-      .product-list.list-view {
-        gap: 15px;
+      .pagination {
+        gap: 5px;
       }
 
-      .no-products {
-        padding: 40px 20px;
-      }
-
-      .no-products i {
-        font-size: 48px;
-      }
-
-      .no-products h3 {
-        font-size: 20px;
-      }
-    }
-
-    /* Small Mobile (< 480px) */
-    @media (max-width: 480px) {
-      .shop-header h2 {
-        font-size: 20px;
-      }
-
-      .filter-section {
-        padding: 10px;
-      }
-
-      .category-select {
-        font-size: 14px;
+      .page-btn {
         padding: 8px 12px;
+        font-size: 12px;
       }
 
-      .view-btn {
-        padding: 6px 10px;
-        font-size: 14px;
-      }
-
-      .product-list.grid-view {
-        grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
-        gap: 10px;
-      }
-
-      .results-info {
-        font-size: 13px;
+      .page-number {
+        width: 35px;
+        height: 35px;
+        font-size: 12px;
       }
     }
   `]
@@ -465,22 +594,41 @@ export class ProductList implements OnInit {
   @Input() selectedCategory: string = 'all';
   
   products: Product[] = [];
-  categories: string[] = [];
   filteredProducts: Product[] = [];
+  paginatedProducts: Product[] = [];
+  categories: string[] = [];
+  brands: string[] = [];
+  
+  searchQuery: string = '';
+  selectedBrand: string = 'all';
   viewMode: 'grid' | 'list' = 'grid';
+  loading: boolean = true;
+  
+  // Pagination
+  currentPage: number = 1;
+  itemsPerPage: number = 8;
+  totalPages: number = 1;
 
   constructor(private productService: ProductService) {}
 
   async ngOnInit() {
-    // Subscribe to products from service
+    this.loading = true;
+    
+    // Subscribe to products
     this.productService.products$.subscribe(products => {
       this.products = products;
-      this.filterProducts();
+      this.loading = products.length === 0;
+      
+      if (products.length > 0) {
+        this.filterProducts();
+      }
     });
 
+    // Get categories and brands
     this.categories = this.productService.getCategories();
+    this.brands = this.getUniqueBrands();
     
-    // Load saved view mode from localStorage
+    // Load saved view mode
     const savedViewMode = localStorage.getItem('viewMode');
     if (savedViewMode === 'list' || savedViewMode === 'grid') {
       this.viewMode = savedViewMode;
@@ -493,12 +641,94 @@ export class ProductList implements OnInit {
     }
   }
 
+  onSearchChange() {
+    this.filterProducts();
+  }
+
   filterProducts() {
-    this.filteredProducts = this.productService.getProductsByCategory(this.selectedCategory);
+    let filtered = [...this.products];
+
+    // Search filter
+    if (this.searchQuery.trim()) {
+      const query = this.searchQuery.toLowerCase();
+      filtered = filtered.filter(p => 
+        p.name.toLowerCase().includes(query) ||
+        p.category.toLowerCase().includes(query) ||
+        p.brand.toLowerCase().includes(query) ||
+        p.description?.toLowerCase().includes(query)
+      );
+    }
+
+    // Category filter
+    if (this.selectedCategory !== 'all') {
+      filtered = filtered.filter(p => p.category === this.selectedCategory);
+    }
+
+    // Brand filter
+    if (this.selectedBrand !== 'all') {
+      filtered = filtered.filter(p => p.brand === this.selectedBrand);
+    }
+
+    this.filteredProducts = filtered;
+    this.totalPages = Math.ceil(filtered.length / this.itemsPerPage);
+    this.currentPage = 1; // Reset to first page
+    this.updatePaginatedProducts();
+  }
+
+  updatePaginatedProducts() {
+    const startIndex = (this.currentPage - 1) * this.itemsPerPage;
+    const endIndex = startIndex + this.itemsPerPage;
+    this.paginatedProducts = this.filteredProducts.slice(startIndex, endIndex);
+    
+    // Scroll to top
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }
+
+  goToPage(page: number) {
+    if (page >= 1 && page <= this.totalPages) {
+      this.currentPage = page;
+      this.updatePaginatedProducts();
+    }
+  }
+
+  getPageNumbers(): number[] {
+    const pages: number[] = [];
+    const showPages = 5;
+    
+    let startPage = Math.max(1, this.currentPage - Math.floor(showPages / 2));
+    let endPage = Math.min(this.totalPages, startPage + showPages - 1);
+    
+    if (endPage - startPage < showPages - 1) {
+      startPage = Math.max(1, endPage - showPages + 1);
+    }
+    
+    for (let i = startPage; i <= endPage; i++) {
+      pages.push(i);
+    }
+    
+    return pages;
+  }
+
+  getStartIndex(): number {
+    return (this.currentPage - 1) * this.itemsPerPage;
+  }
+
+  getEndIndex(): number {
+    return Math.min(this.getStartIndex() + this.itemsPerPage, this.filteredProducts.length);
+  }
+
+  getUniqueBrands(): string[] {
+    return [...new Set(this.products.map(p => p.brand))];
+  }
+
+  resetFilters() {
+    this.searchQuery = '';
+    this.selectedCategory = 'all';
+    this.selectedBrand = 'all';
+    this.filterProducts();
   }
 
   ngOnDestroy() {
-    // Save view mode preference
     localStorage.setItem('viewMode', this.viewMode);
   }
 }
